@@ -282,14 +282,14 @@ const Quotation = () => {
                   <Phone className="w-5 h-5 text-autumn-500 mr-3 mt-1" />
                   <div>
                     <p className="font-medium text-autumn-800">Teléfono</p>
-                    <p className="text-autumn-600">+1 (555) 123-4567</p>
+                    <p className="text-autumn-600">+1 (829) 569-0758</p>
                   </div>
                 </div>
                 <div className="flex items-start">
                   <Mail className="w-5 h-5 text-autumn-500 mr-3 mt-1" />
                   <div>
                     <p className="font-medium text-autumn-800">Email</p>
-                    <p className="text-autumn-600">info@creaparty.com</p>
+                    <p className="text-autumn-600">alcequiezyuleidy25@gmail.com</p>
                   </div>
                 </div>
               </div>

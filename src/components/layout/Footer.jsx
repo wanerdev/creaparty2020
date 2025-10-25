@@ -98,11 +98,11 @@ const Footer = () => {
               </li>
               <li className="flex items-start space-x-3">
                 <Mail className="w-5 h-5 text-autumn-300 flex-shrink-0 mt-1" />
-                <span className="text-cream-200">info@creaparty.com</span>
+                <span className="text-cream-200">alcequiezyuleidy25@gmail.com</span>
               </li>
               <li className="flex items-start space-x-3">
                 <MapPin className="w-5 h-5 text-autumn-300 flex-shrink-0 mt-1" />
-                <span className="text-cream-200">Tu Ciudad, País</span>
+                <span className="text-cream-200">Santo Domingo, República Dominicana</span>
               </li>
             </ul>
           </div>
