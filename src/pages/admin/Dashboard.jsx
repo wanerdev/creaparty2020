@@ -76,7 +76,7 @@ const Dashboard = () => {
           <div className="flex items-center justify-between mb-8">
             {sidebarOpen && (
               <h1 className="text-2xl font-bold gradient-text">
-                Creaparty
+                Creaparty2020
               </h1>
             )}
             <button

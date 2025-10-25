@@ -41,7 +41,7 @@ const Navbar = () => {
             <div className="relative transition-transform hover:scale-105">
               <div className="absolute inset-0 bg-gradient-to-r from-autumn-400 to-rust-400 blur-xl opacity-50 rounded-full" />
               <h1 className="relative text-2xl md:text-3xl font-bold gradient-text">
-                Creaparty
+                Creaparty2020
               </h1>
             </div>
           </Link>

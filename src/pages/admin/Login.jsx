@@ -70,7 +70,7 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="input-modern pl-12"
-                  placeholder="admin@creaparty.com"
+                  placeholder="admin@creaparty2020.com"
                   required
                 />
               </div>

@@ -106,7 +106,7 @@ const Home = () => {
       <section className="py-24 relative">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="section-header">¿Por qué elegir Creaparty?</h2>
+            <h2 className="section-header">¿Por qué elegir Creaparty2020?</h2>
             <p className="section-subheader">
               Ofrecemos mucho más que mobiliario, creamos experiencias completas
             </p>

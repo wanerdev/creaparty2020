@@ -35,7 +35,7 @@ const Footer = () => {
           {/* Brand Section */}
           <div>
             <h3 className="text-3xl font-bold mb-4 bg-gradient-to-r from-cream-200 to-autumn-200 bg-clip-text text-transparent">
-              Creaparty
+              Creaparty2020
             </h3>
             <p className="text-cream-200 mb-6">
               Creamos momentos inolvidables con estilo y elegancia. Tu evento perfecto comienza aquí.
@@ -94,7 +94,7 @@ const Footer = () => {
             <ul className="space-y-3">
               <li className="flex items-start space-x-3">
                 <Phone className="w-5 h-5 text-autumn-300 flex-shrink-0 mt-1" />
-                <span className="text-cream-200">+1 (555) 123-4567</span>
+                <span className="text-cream-200">+1 (829) 569-0578</span>
               </li>
               <li className="flex items-start space-x-3">
                 <Mail className="w-5 h-5 text-autumn-300 flex-shrink-0 mt-1" />
@@ -112,7 +112,7 @@ const Footer = () => {
         <div className="border-t border-white/10 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <p className="text-cream-300 text-sm">
-              © {currentYear} Creaparty. Todos los derechos reservados.
+              © {currentYear} Creaparty2020. Todos los derechos reservados.
             </p>
             <div className="flex space-x-6 text-sm">
               <Link to="/privacidad" className="text-cream-300 hover:text-white transition-colors">
