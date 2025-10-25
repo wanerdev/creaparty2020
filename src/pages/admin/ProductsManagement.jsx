@@ -22,6 +22,9 @@ const ProductsManagement = () => {
     imagen_url: '',
     disponible: true,
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
     fetchProducts();
@@ -64,12 +67,88 @@ const ProductsManagement = () => {
     }
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validar que sea una imagen
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor selecciona un archivo de imagen válido');
+        return;
+      }
+
+      // Validar tamaño (máximo 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('La imagen no debe superar los 5MB');
+        return;
+      }
+
+      setImageFile(file);
+
+      // Crear preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!imageFile) return null;
+
+    try {
+      setUploading(true);
+
+      // Crear nombre único para el archivo
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `productos/${fileName}`;
+
+      // Subir archivo a Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('imagenes')
+        .upload(filePath, imageFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      // Obtener URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('imagenes')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Error al subir la imagen: ' + error.message);
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
+      let imageUrl = formData.imagen_url;
+
+      // Si hay un archivo seleccionado, subirlo primero
+      if (imageFile) {
+        const uploadedUrl = await uploadImage();
+        if (uploadedUrl) {
+          imageUrl = uploadedUrl;
+        } else {
+          alert('No se pudo subir la imagen. Intenta de nuevo.');
+          return;
+        }
+      }
+
       const productData = {
         ...formData,
+        imagen_url: imageUrl,
         precio: parseFloat(formData.precio),
         stock: parseInt(formData.stock),
       };
@@ -145,6 +224,8 @@ const ProductsManagement = () => {
       imagen_url: '',
       disponible: true,
     });
+    setImageFile(null);
+    setImagePreview(null);
   };
 
   const filteredProducts = products.filter((product) =>
@@ -368,15 +449,66 @@ const ProductsManagement = () => {
                     </select>
                   </div>
 
-                  <Input
-                    label="URL de Imagen"
-                    type="url"
-                    value={formData.imagen_url}
-                    onChange={(e) =>
-                      setFormData({ ...formData, imagen_url: e.target.value })
-                    }
-                    placeholder="https://ejemplo.com/imagen.jpg"
-                  />
+                  {/* Subida de Imagen */}
+                  <div>
+                    <label className="block text-sm font-medium text-autumn-700 mb-2">
+                      Imagen del Producto
+                    </label>
+
+                    {/* Preview de imagen */}
+                    {(imagePreview || formData.imagen_url) && (
+                      <div className="mb-4 relative aspect-video bg-autumn-100 rounded-2xl overflow-hidden">
+                        <img
+                          src={imagePreview || formData.imagen_url}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        {imagePreview && (
+                          <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                            Nueva imagen seleccionada
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Botón para seleccionar archivo */}
+                    <div className="mb-4">
+                      <label className="block">
+                        <div className="flex items-center justify-center px-6 py-4 border-2 border-dashed border-autumn-300 rounded-xl cursor-pointer hover:border-autumn-500 hover:bg-autumn-50 transition-colors">
+                          <Upload className="w-6 h-6 text-autumn-500 mr-3" />
+                          <span className="text-autumn-700 font-medium">
+                            {imageFile ? imageFile.name : 'Seleccionar imagen desde tu computadora'}
+                          </span>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                      <p className="text-xs text-autumn-500 mt-2">
+                        O ingresa una URL de imagen externa abajo (JPG, PNG, máx. 5MB)
+                      </p>
+                    </div>
+
+                    {/* Campo de URL (opcional) */}
+                    <Input
+                      label="URL de Imagen (opcional)"
+                      type="url"
+                      value={formData.imagen_url}
+                      onChange={(e) =>
+                        setFormData({ ...formData, imagen_url: e.target.value })
+                      }
+                      placeholder="https://ejemplo.com/imagen.jpg"
+                      disabled={!!imageFile}
+                    />
+                    {imageFile && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Se usará la imagen seleccionada. Para usar URL, elimina la selección primero.
+                      </p>
+                    )}
+                  </div>
 
                   <div className="flex items-center space-x-3">
                     <input
@@ -394,13 +526,21 @@ const ProductsManagement = () => {
                   </div>
 
                   <div className="flex gap-4 pt-4">
-                    <Button type="submit" variant="primary" className="flex-1">
-                      {editingProduct ? 'Actualizar' : 'Crear'} Producto
+                    <Button type="submit" variant="primary" className="flex-1" disabled={uploading}>
+                      {uploading ? (
+                        <>
+                          <div className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Subiendo imagen...
+                        </>
+                      ) : (
+                        `${editingProduct ? 'Actualizar' : 'Crear'} Producto`
+                      )}
                     </Button>
                     <Button
                       type="button"
                       variant="secondary"
                       onClick={() => setShowModal(false)}
+                      disabled={uploading}
                     >
                       Cancelar
                     </Button>

@@ -17,6 +17,9 @@ const GalleryManagement = () => {
     url: '',
     categoria: 'bodas',
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const categories = [
     { id: 'all', name: 'Todas' },
@@ -46,11 +49,91 @@ const GalleryManagement = () => {
     }
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor selecciona un archivo de imagen válido');
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert('La imagen no debe superar los 5MB');
+        return;
+      }
+
+      setImageFile(file);
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!imageFile) return null;
+
+    try {
+      setUploading(true);
+
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `galeria/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('imagenes')
+        .upload(filePath, imageFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('imagenes')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Error al subir la imagen: ' + error.message);
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      const { error } = await supabase.from('galeria').insert([formData]);
+      let imageUrl = formData.url;
+
+      // Si hay un archivo seleccionado, subirlo primero
+      if (imageFile) {
+        const uploadedUrl = await uploadImage();
+        if (uploadedUrl) {
+          imageUrl = uploadedUrl;
+        } else {
+          alert('No se pudo subir la imagen. Intenta de nuevo.');
+          return;
+        }
+      }
+
+      // Validar que haya una URL (del archivo o manual)
+      if (!imageUrl) {
+        alert('Por favor selecciona una imagen o ingresa una URL');
+        return;
+      }
+
+      const imageData = {
+        ...formData,
+        url: imageUrl,
+      };
+
+      const { error } = await supabase.from('galeria').insert([imageData]);
 
       if (error) throw error;
 
@@ -86,6 +169,8 @@ const GalleryManagement = () => {
       url: '',
       categoria: 'bodas',
     });
+    setImageFile(null);
+    setImagePreview(null);
   };
 
   const filteredImages = images.filter((img) =>
@@ -211,7 +296,7 @@ const GalleryManagement = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-2xl"
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto"
           >
               <Card className="p-8">
                 <div className="flex items-center justify-between mb-6">
@@ -227,28 +312,67 @@ const GalleryManagement = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <Input
-                    label="URL de la Imagen"
-                    type="url"
-                    value={formData.url}
-                    onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                    placeholder="https://ejemplo.com/imagen.jpg"
-                    required
-                  />
+                  {/* Subida de Imagen */}
+                  <div>
+                    <label className="block text-sm font-medium text-autumn-700 mb-2">
+                      Imagen
+                    </label>
 
-                  {/* Preview de la imagen */}
-                  {formData.url && (
-                    <div className="aspect-video bg-autumn-100 rounded-2xl overflow-hidden">
-                      <img
-                        src={formData.url}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
-                      />
+                    {/* Preview de imagen */}
+                    {(imagePreview || formData.url) && (
+                      <div className="mb-4 relative aspect-video bg-autumn-100 rounded-2xl overflow-hidden">
+                        <img
+                          src={imagePreview || formData.url}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                        {imagePreview && (
+                          <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                            Nueva imagen seleccionada
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Botón para seleccionar archivo */}
+                    <div className="mb-4">
+                      <label className="block">
+                        <div className="flex items-center justify-center px-6 py-4 border-2 border-dashed border-autumn-300 rounded-xl cursor-pointer hover:border-autumn-500 hover:bg-autumn-50 transition-colors">
+                          <Upload className="w-6 h-6 text-autumn-500 mr-3" />
+                          <span className="text-autumn-700 font-medium">
+                            {imageFile ? imageFile.name : 'Seleccionar imagen desde tu computadora'}
+                          </span>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                      <p className="text-xs text-autumn-500 mt-2">
+                        O ingresa una URL de imagen externa abajo (JPG, PNG, máx. 5MB)
+                      </p>
                     </div>
-                  )}
+
+                    {/* Campo de URL (opcional) */}
+                    <Input
+                      label="URL de Imagen (opcional)"
+                      type="url"
+                      value={formData.url}
+                      onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                      placeholder="https://ejemplo.com/imagen.jpg"
+                      disabled={!!imageFile}
+                    />
+                    {imageFile && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Se usará la imagen seleccionada. Para usar URL, elimina la selección primero.
+                      </p>
+                    )}
+                  </div>
 
                   <Input
                     label="Título (opcional)"
@@ -292,36 +416,29 @@ const GalleryManagement = () => {
                   </div>
 
                   <div className="flex gap-4 pt-4">
-                    <Button type="submit" variant="primary" className="flex-1">
-                      <Upload className="w-5 h-5 mr-2" />
-                      Agregar Imagen
+                    <Button type="submit" variant="primary" className="flex-1" disabled={uploading}>
+                      {uploading ? (
+                        <>
+                          <div className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Subiendo imagen...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5 mr-2" />
+                          Agregar Imagen
+                        </>
+                      )}
                     </Button>
                     <Button
                       type="button"
                       variant="secondary"
                       onClick={() => setShowModal(false)}
+                      disabled={uploading}
                     >
                       Cancelar
                     </Button>
                   </div>
                 </form>
-
-                {/* Nota sobre storage */}
-                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                  <p className="text-sm text-blue-800">
-                    <strong>💡 Tip:</strong> Para subir imágenes, puedes usar servicios
-                    gratuitos como{' '}
-                    <a
-                      href="https://imgur.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline font-semibold"
-                    >
-                      Imgur
-                    </a>{' '}
-                    o configurar Supabase Storage (ver SETUP_GUIDE.md)
-                  </p>
-                </div>
               </Card>
             </div>
           </div>
