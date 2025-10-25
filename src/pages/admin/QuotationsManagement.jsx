@@ -14,6 +14,7 @@ const QuotationsManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedQuotation, setSelectedQuotation] = useState(null);
   const [quotationProducts, setQuotationProducts] = useState({});
+  const [quotationsWithReservations, setQuotationsWithReservations] = useState(new Set());
 
   useEffect(() => {
     fetchQuotations();
@@ -32,11 +33,33 @@ const QuotationsManagement = () => {
       // Fetch products for each quotation
       if (data && data.length > 0) {
         await fetchQuotationProducts(data);
+        await checkQuotationsWithReservations(data);
       }
     } catch (error) {
       console.error('Error fetching quotations:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkQuotationsWithReservations = async (quotations) => {
+    try {
+      // Obtener todas las reservas que tienen cotizacion_id
+      const { data, error } = await supabase
+        .from('reservas')
+        .select('cotizacion_id')
+        .not('cotizacion_id', 'is', null);
+
+      if (error) throw error;
+
+      // Crear un Set con los IDs de cotizaciones que ya tienen reserva
+      const quotationIdsWithReservations = new Set(
+        data.map(reserva => reserva.cotizacion_id)
+      );
+
+      setQuotationsWithReservations(quotationIdsWithReservations);
+    } catch (error) {
+      console.error('Error checking quotations with reservations:', error);
     }
   };
 
@@ -141,6 +164,12 @@ const QuotationsManagement = () => {
   };
 
   const handleConvertToReservation = async (quotation) => {
+    // Verificar si ya existe una reserva para esta cotización
+    if (quotationsWithReservations.has(quotation.id)) {
+      alert('Esta cotización ya tiene una reserva creada. No se pueden crear duplicados.');
+      return;
+    }
+
     if (!confirm('¿Convertir esta cotización en una reserva?')) return;
 
     try {
@@ -194,6 +223,9 @@ const QuotationsManagement = () => {
         .eq('id', quotation.id);
 
       if (quotationError) throw quotationError;
+
+      // Agregar al Set de cotizaciones con reserva
+      setQuotationsWithReservations(prev => new Set([...prev, quotation.id]));
 
       alert('Reserva creada exitosamente con todos los productos');
       fetchQuotations();
@@ -433,15 +465,17 @@ const QuotationsManagement = () => {
                           <Check className="w-4 h-4 mr-2" />
                           Aprobar
                         </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleConvertToReservation(quotation)}
-                          className="w-full"
-                        >
-                          <Calendar className="w-4 h-4 mr-2" />
-                          Crear Reserva
-                        </Button>
+                        {!quotationsWithReservations.has(quotation.id) && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleConvertToReservation(quotation)}
+                            className="w-full"
+                          >
+                            <Calendar className="w-4 h-4 mr-2" />
+                            Crear Reserva
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -455,15 +489,37 @@ const QuotationsManagement = () => {
                     )}
 
                     {quotation.estado === 'aprobada' && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleConvertToReservation(quotation)}
-                        className="w-full"
-                      >
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Crear Reserva
-                      </Button>
+                      <>
+                        {!quotationsWithReservations.has(quotation.id) ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleConvertToReservation(quotation)}
+                            className="w-full"
+                          >
+                            <Calendar className="w-4 h-4 mr-2" />
+                            Crear Reserva
+                          </Button>
+                        ) : (
+                          <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-center">
+                            <div className="flex items-center justify-center gap-2 text-green-700 text-sm font-semibold">
+                              <Check className="w-4 h-4" />
+                              Reserva Creada
+                            </div>
+                            <p className="text-xs text-green-600 mt-1">
+                              Esta cotización ya tiene una reserva
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {quotation.estado === 'rechazada' && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-center">
+                        <p className="text-sm text-red-700 font-semibold">
+                          Cotización Rechazada
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
