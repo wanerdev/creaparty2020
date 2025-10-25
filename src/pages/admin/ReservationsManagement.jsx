@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Calendar, Mail, Phone, Users, Edit, X } from 'lucide-react';
+import { Search, Calendar, Mail, Phone, Users, Edit, X, Package, DollarSign, ShoppingCart } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { sendReservationConfirmedEmail } from '../../services/emailService';
 import Button from '../../components/ui/Button';
@@ -12,6 +12,7 @@ const ReservationsManagement = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // all, pendiente, confirmada, completada, cancelada
   const [searchQuery, setSearchQuery] = useState('');
+  const [reservationProducts, setReservationProducts] = useState({});
 
   useEffect(() => {
     fetchReservations();
@@ -26,10 +27,47 @@ const ReservationsManagement = () => {
 
       if (error) throw error;
       setReservations(data || []);
+
+      // Fetch products for each reservation
+      if (data && data.length > 0) {
+        await fetchReservationProducts(data);
+      }
     } catch (error) {
       console.error('Error fetching reservations:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReservationProducts = async (reservations) => {
+    try {
+      const productsMap = {};
+
+      await Promise.all(
+        reservations.map(async (reservation) => {
+          const { data, error } = await supabase
+            .from('productos_reserva')
+            .select(`
+              *,
+              productos:producto_id (
+                nombre,
+                precio,
+                imagen_url
+              )
+            `)
+            .eq('reserva_id', reservation.id);
+
+          if (!error && data) {
+            productsMap[reservation.id] = data;
+          } else {
+            productsMap[reservation.id] = [];
+          }
+        })
+      );
+
+      setReservationProducts(productsMap);
+    } catch (error) {
+      console.error('Error fetching reservation products:', error);
     }
   };
 
@@ -232,6 +270,82 @@ const ReservationsManagement = () => {
                       <div className="p-4 bg-autumn-50 rounded-xl">
                         <div className="text-sm text-autumn-500 mb-1">Notas:</div>
                         <div className="text-autumn-700">{reservation.notas}</div>
+                      </div>
+                    )}
+
+                    {/* Service Type Badge */}
+                    {reservation.tipo_servicio && (
+                      <div className="mt-4">
+                        <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                          reservation.tipo_servicio === 'decoracion'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {reservation.tipo_servicio === 'decoracion' ? '✨ Servicio de Decoración' : '🪑 Solo Alquiler'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Products List */}
+                    {reservationProducts[reservation.id] && reservationProducts[reservation.id].length > 0 && (
+                      <div className="mt-4">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-autumn-700 mb-3">
+                          <ShoppingCart className="w-4 h-4" />
+                          Productos Reservados ({reservationProducts[reservation.id].length})
+                        </div>
+                        <div className="space-y-2">
+                          {reservationProducts[reservation.id].map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-3 p-3 bg-white rounded-xl border border-autumn-200"
+                            >
+                              {/* Product Image */}
+                              {item.productos?.imagen_url && (
+                                <img
+                                  src={item.productos.imagen_url}
+                                  alt={item.productos?.nombre}
+                                  className="w-12 h-12 object-cover rounded-lg"
+                                  onError={(e) => {
+                                    e.target.src = 'https://via.placeholder.com/48?text=Sin+Imagen';
+                                  }}
+                                />
+                              )}
+
+                              {/* Product Info */}
+                              <div className="flex-1">
+                                <div className="font-semibold text-autumn-800 text-sm">
+                                  {item.productos?.nombre}
+                                </div>
+                                <div className="text-xs text-autumn-600">
+                                  <Package className="w-3 h-3 inline mr-1" />
+                                  Cantidad: {item.cantidad} × ${item.precio_unitario}
+                                </div>
+                              </div>
+
+                              {/* Subtotal */}
+                              <div className="text-right">
+                                <div className="text-sm font-bold text-autumn-700">
+                                  ${item.subtotal}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Total */}
+                        {reservation.total && (
+                          <div className="mt-3 p-3 bg-gradient-to-r from-autumn-50 to-rust-50 rounded-xl border border-autumn-200">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold text-autumn-700 flex items-center gap-1">
+                                <DollarSign className="w-4 h-4" />
+                                Total de la Reserva
+                              </span>
+                              <span className="text-lg font-bold gradient-text">
+                                ${reservation.total}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

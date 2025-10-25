@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CheckCircle, Calendar, Users, Mail, Phone, MessageSquare } from 'lucide-react';
+import { CheckCircle, Calendar, Users, Mail, Phone, MessageSquare, Plus, Minus, Trash2, Package, ShoppingCart, ArrowLeft, Check } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { sendNewQuotationEmail } from '../../services/emailService';
+import { useCart } from '../../context/CartContext';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Textarea from '../../components/ui/Textarea';
@@ -16,6 +18,7 @@ const quotationSchema = z.object({
   telefono: z.string().min(8, 'Teléfono inválido'),
   fecha_evento: z.string().min(1, 'Selecciona una fecha'),
   tipo_evento: z.string().min(1, 'Selecciona el tipo de evento'),
+  tipo_servicio: z.string().min(1, 'Selecciona el tipo de servicio'),
   num_personas: z.string().min(1, 'Indica el número de personas'),
   mensaje: z.string().optional(),
 });
@@ -23,32 +26,118 @@ const quotationSchema = z.object({
 const Quotation = () => {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedServiceType, setSelectedServiceType] = useState('alquiler');
+  const navigate = useNavigate();
+
+  const {
+    cartItems,
+    selectedDate,
+    setSelectedDate,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    getTotal,
+  } = useCart();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
   } = useForm({
     resolver: zodResolver(quotationSchema),
+    defaultValues: {
+      tipo_servicio: 'alquiler',
+    },
   });
+
+  // Si hay una fecha guardada en el carrito, establecerla en el formulario
+  useEffect(() => {
+    if (selectedDate) {
+      setValue('fecha_evento', selectedDate);
+    }
+  }, [selectedDate, setValue]);
+
+  // Cuando cambia la fecha del formulario, actualizar el carrito
+  const handleDateChange = (e) => {
+    const newDate = e.target.value;
+    setSelectedDate(newDate);
+    checkStockAvailability(newDate);
+  };
+
+  const checkStockAvailability = async (fecha) => {
+    if (!fecha || cartItems.length === 0) return;
+
+    try {
+      // Para cada producto en el carrito, verificar stock disponible
+      for (const item of cartItems) {
+        try {
+          const { data, error } = await supabase.rpc('get_stock_disponible', {
+            p_producto_id: item.id,
+            p_fecha: fecha,
+          });
+
+          if (!error && data !== null) {
+            // Actualizar stock disponible si es necesario
+            console.log(`Stock disponible para ${item.nombre}:`, data);
+          }
+        } catch (err) {
+          // Si la función no existe, continuar sin error
+          console.warn('Stock check skipped for:', item.nombre);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking stock availability:', error);
+    }
+  };
 
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      const { error } = await supabase.from('cotizaciones').insert([
-        {
-          ...data,
-          estado: 'pendiente',
-          num_personas: parseInt(data.num_personas),
-        },
-      ]);
+      const total = getTotal();
 
-      if (error) throw error;
+      // 1. Crear cotización
+      const { data: cotizacion, error: cotizacionError } = await supabase
+        .from('cotizaciones')
+        .insert([
+          {
+            ...data,
+            estado: 'pendiente',
+            num_personas: parseInt(data.num_personas),
+            tipo_servicio: data.tipo_servicio,
+            total: total,
+          },
+        ])
+        .select()
+        .single();
 
-      // Send email notification
+      if (cotizacionError) throw cotizacionError;
+
+      // 2. Guardar productos de la cotización
+      if (cartItems.length > 0) {
+        const productosData = cartItems.map((item) => ({
+          cotizacion_id: cotizacion.id,
+          producto_id: item.id,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio,
+          subtotal: item.precio * item.cantidad,
+        }));
+
+        const { error: productosError } = await supabase
+          .from('productos_cotizacion')
+          .insert(productosData);
+
+        if (productosError) throw productosError;
+      }
+
+      // 3. Send email notification
       try {
-        await sendNewQuotationEmail(data);
+        await sendNewQuotationEmail({
+          ...data,
+          productos: cartItems,
+          total: total,
+        });
       } catch (emailError) {
         console.error('Error sending email:', emailError);
         // Continue even if email fails
@@ -56,6 +145,7 @@ const Quotation = () => {
 
       setSubmitted(true);
       reset();
+      clearCart();
     } catch (error) {
       console.error('Error submitting quotation:', error);
       alert('Hubo un error al enviar tu cotización. Por favor intenta de nuevo.');
@@ -116,7 +206,7 @@ const Quotation = () => {
         <div className="text-center mb-12">
           <h1 className="section-header">Solicitar Cotización</h1>
           <p className="section-subheader">
-            Cuéntanos sobre tu evento y te enviaremos una cotización personalizada
+            Completa el formulario y te enviaremos una cotización personalizada
           </p>
         </div>
 
@@ -190,6 +280,7 @@ const Quotation = () => {
                       label="Fecha del Evento"
                       type="date"
                       {...register('fecha_evento')}
+                      onChange={handleDateChange}
                       error={errors.fecha_evento?.message}
                     />
                   </div>
@@ -205,6 +296,181 @@ const Quotation = () => {
                     />
                   </div>
                 </div>
+
+                {/* Service Type Selection */}
+                <div>
+                  <h3 className="text-xl font-bold text-autumn-800 mb-4 flex items-center">
+                    <Package className="w-5 h-5 mr-2" />
+                    Tipo de Servicio
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Alquiler Simple */}
+                    <label
+                      className={`relative flex flex-col p-6 border-2 rounded-2xl cursor-pointer transition-all ${
+                        selectedServiceType === 'alquiler'
+                          ? 'border-autumn-500 bg-autumn-50 shadow-soft-lg'
+                          : 'border-autumn-200 hover:border-autumn-300 hover:bg-autumn-50/50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        value="alquiler"
+                        {...register('tipo_servicio')}
+                        onChange={(e) => setSelectedServiceType(e.target.value)}
+                        className="sr-only"
+                      />
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-2xl">🪑</span>
+                        {selectedServiceType === 'alquiler' && (
+                          <div className="w-6 h-6 bg-autumn-500 rounded-full flex items-center justify-center">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <h4 className="text-lg font-bold text-autumn-800 mb-2">
+                        Solo Alquiler
+                      </h4>
+                      <p className="text-sm text-autumn-600">
+                        Renta el mobiliario y tú te encargas de la instalación y decoración
+                      </p>
+                    </label>
+
+                    {/* Servicio con Decoración */}
+                    <label
+                      className={`relative flex flex-col p-6 border-2 rounded-2xl cursor-pointer transition-all ${
+                        selectedServiceType === 'decoracion'
+                          ? 'border-autumn-500 bg-autumn-50 shadow-soft-lg'
+                          : 'border-autumn-200 hover:border-autumn-300 hover:bg-autumn-50/50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        value="decoracion"
+                        {...register('tipo_servicio')}
+                        onChange={(e) => setSelectedServiceType(e.target.value)}
+                        className="sr-only"
+                      />
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-2xl">✨</span>
+                        {selectedServiceType === 'decoracion' && (
+                          <div className="w-6 h-6 bg-autumn-500 rounded-full flex items-center justify-center">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <h4 className="text-lg font-bold text-autumn-800 mb-2">
+                        Servicio de Decoración
+                      </h4>
+                      <p className="text-sm text-autumn-600">
+                        Incluye mobiliario + instalación + decoración profesional de tu evento
+                      </p>
+                      <div className="mt-3 px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full inline-block">
+                        Servicio completo
+                      </div>
+                    </label>
+                  </div>
+
+                  {errors.tipo_servicio && (
+                    <p className="text-sm text-red-500 mt-2">
+                      {errors.tipo_servicio.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Cart Review */}
+                {cartItems.length > 0 && (
+                  <div>
+                    <h3 className="text-xl font-bold text-autumn-800 mb-4 flex items-center justify-between">
+                      <span className="flex items-center">
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        Productos Seleccionados
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/catalogo')}
+                        className="text-sm text-autumn-600 hover:text-autumn-800 flex items-center gap-1"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Agregar más productos
+                      </button>
+                    </h3>
+
+                    <Card className="p-4 bg-autumn-50 border-2 border-autumn-200">
+                      <div className="space-y-3">
+                        {cartItems.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between bg-white rounded-lg p-3">
+                            <div className="flex-1">
+                              <p className="font-medium text-autumn-800">{item.nombre}</p>
+                              <p className="text-sm text-autumn-600">
+                                ${item.precio} x {item.cantidad} = ${(item.precio * item.cantidad).toFixed(2)}
+                              </p>
+                              {item.stockDisponible !== undefined && item.stockDisponible < item.stock && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                  {item.stockDisponible} disponibles para esta fecha
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 ml-4">
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(item.id, item.cantidad - 1)}
+                                className="p-1 hover:bg-autumn-100 rounded transition-colors"
+                              >
+                                <Minus className="w-4 h-4 text-autumn-600" />
+                              </button>
+                              <span className="w-8 text-center font-semibold">{item.cantidad}</span>
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(item.id, item.cantidad + 1)}
+                                className="p-1 hover:bg-autumn-100 rounded transition-colors"
+                              >
+                                <Plus className="w-4 h-4 text-autumn-600" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeFromCart(item.id)}
+                                className="p-1 hover:bg-red-100 rounded transition-colors ml-2"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-autumn-200">
+                        <div className="flex items-center justify-between text-lg font-bold">
+                          <span className="text-autumn-800">Total Estimado:</span>
+                          <span className="gradient-text">${getTotal().toFixed(2)}</span>
+                        </div>
+                        <p className="text-xs text-autumn-500 mt-1">
+                          Este es un precio estimado. Recibirás la cotización final por email.
+                        </p>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Empty Cart Message */}
+                {cartItems.length === 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+                    <Package className="w-12 h-12 text-blue-500 mx-auto mb-3" />
+                    <p className="text-blue-800 font-semibold mb-2">
+                      No has seleccionado productos
+                    </p>
+                    <p className="text-sm text-blue-600 mb-4">
+                      Puedes agregar mobiliario desde nuestro catálogo o continuar sin productos
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => navigate('/catalogo')}
+                    >
+                      Ir al Catálogo
+                    </Button>
+                  </div>
+                )}
 
                 {/* Message */}
                 <div>

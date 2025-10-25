@@ -38,14 +38,18 @@ const Availability = () => {
 
       if (error) throw error;
 
-      const formattedEvents = (data || []).map((reservation) => ({
-        id: reservation.id,
-        title: 'Reservado',
-        start: new Date(reservation.fecha_evento),
-        end: new Date(reservation.fecha_evento),
-        allDay: true,
-        resource: reservation,
-      }));
+      // Solo mostrar en el calendario las reservas con servicio de decoración
+      // Los alquileres simples no bloquean la fecha
+      const formattedEvents = (data || [])
+        .filter(reservation => reservation.tipo_servicio === 'decoracion')
+        .map((reservation) => ({
+          id: reservation.id,
+          title: 'Reservado - Servicio de Decoración',
+          start: new Date(reservation.fecha_evento),
+          end: new Date(reservation.fecha_evento),
+          allDay: true,
+          resource: reservation,
+        }));
 
       setEvents(formattedEvents);
     } catch (error) {
@@ -109,8 +113,17 @@ const Availability = () => {
         <div className="text-center mb-12">
           <h1 className="section-header">Disponibilidad</h1>
           <p className="section-subheader">
-            Consulta las fechas disponibles para tu evento
+            Consulta las fechas con servicio de decoración reservado
           </p>
+          <div className="mt-4 max-w-2xl mx-auto">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <p className="text-sm text-blue-800">
+                <strong>🪑 Alquileres:</strong> Puedes alquilar mobiliario cualquier día (sujeto a stock disponible)
+                <br />
+                <strong>✨ Servicio de Decoración:</strong> Solo fechas marcadas como disponibles en el calendario
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -169,12 +182,17 @@ const Availability = () => {
               <div className="space-y-3">
                 <div className="flex items-center">
                   <div className="w-4 h-4 rounded bg-autumn-500 mr-3" />
-                  <span className="text-autumn-700">Fecha Reservada</span>
+                  <span className="text-autumn-700 text-sm">Servicio de Decoración Reservado</span>
                 </div>
                 <div className="flex items-center">
                   <div className="w-4 h-4 rounded bg-white border-2 border-autumn-200 mr-3" />
-                  <span className="text-autumn-700">Fecha Disponible</span>
+                  <span className="text-autumn-700 text-sm">Disponible para Alquiler o Decoración</span>
                 </div>
+              </div>
+              <div className="mt-4 p-3 bg-blue-50 rounded-xl">
+                <p className="text-xs text-blue-800">
+                  <strong>💡 Nota:</strong> Solo mostramos fechas con servicio de decoración. Los alquileres simples no bloquean fechas.
+                </p>
               </div>
             </Card>
 
@@ -194,10 +212,10 @@ const Availability = () => {
                       <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
                       <div>
                         <p className="font-semibold text-green-900">
-                          Fecha Disponible
+                          ✅ Fecha Disponible
                         </p>
                         <p className="text-sm text-green-700 mt-1">
-                          Esta fecha está libre para tu evento
+                          Puedes solicitar <strong>alquiler de mobiliario</strong> o <strong>servicio de decoración</strong> para esta fecha.
                         </p>
                       </div>
                     </div>
@@ -206,10 +224,10 @@ const Availability = () => {
                       <XCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
                       <div>
                         <p className="font-semibold text-red-900">
-                          Fecha No Disponible
+                          ⚠️ Servicio de Decoración No Disponible
                         </p>
                         <p className="text-sm text-red-700 mt-1">
-                          Esta fecha ya está reservada
+                          Ya hay un servicio de decoración reservado para esta fecha. Puedes solicitar <strong>solo alquiler de mobiliario</strong> (sujeto a disponibilidad de stock).
                         </p>
                       </div>
                     </div>

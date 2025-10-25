@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, ShoppingCart, Plus, Check, Minus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../../components/ui/Card';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import { supabase } from '../../config/supabase';
+import { useCart } from '../../context/CartContext';
 
 const Catalog = () => {
   const [products, setProducts] = useState([]);
@@ -12,6 +14,17 @@ const Catalog = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [eventDate, setEventDate] = useState('');
+  const [productStockMap, setProductStockMap] = useState({});
+  const { getTotalItems, selectedDate, setSelectedDate } = useCart();
+  const navigate = useNavigate();
+
+  // Sincronizar fecha del carrito
+  useEffect(() => {
+    if (selectedDate) {
+      setEventDate(selectedDate);
+    }
+  }, [selectedDate]);
 
   useEffect(() => {
     fetchProducts();
@@ -49,6 +62,66 @@ const Catalog = () => {
     }
   };
 
+  const checkAllProductsStock = async (fecha) => {
+    if (!fecha || products.length === 0) return;
+
+    console.log('🔍 Verificando stock para fecha:', fecha);
+    console.log('📦 Productos a verificar:', products.length);
+
+    try {
+      const stockMap = {};
+
+      await Promise.all(
+        products.map(async (product) => {
+          try {
+            const { data, error } = await supabase.rpc('get_stock_disponible', {
+              p_producto_id: product.id,
+              p_fecha: fecha,
+            });
+
+            if (!error && data !== null) {
+              stockMap[product.id] = data;
+              console.log(`✅ ${product.nombre}: Stock total=${product.stock}, Disponible=${data}`);
+            } else {
+              // Fallback al stock total si hay error
+              console.warn(`⚠️ Error obteniendo stock para ${product.nombre}:`, error);
+              stockMap[product.id] = product.stock;
+            }
+          } catch (err) {
+            // Si la función no existe, usar stock total
+            console.warn('❌ Stock check failed for product:', product.nombre, err);
+            stockMap[product.id] = product.stock;
+          }
+        })
+      );
+
+      console.log('📊 Mapa de stock final:', stockMap);
+      setProductStockMap(stockMap);
+    } catch (error) {
+      console.error('💥 Error checking stock:', error);
+      // En caso de error general, usar stock total para todos
+      const fallbackMap = {};
+      products.forEach(p => {
+        fallbackMap[p.id] = p.stock;
+      });
+      setProductStockMap(fallbackMap);
+    }
+  };
+
+  const handleDateChange = (e) => {
+    const newDate = e.target.value;
+    setEventDate(newDate);
+    setSelectedDate(newDate);
+    checkAllProductsStock(newDate);
+  };
+
+  useEffect(() => {
+    if (eventDate && products.length > 0) {
+      checkAllProductsStock(eventDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventDate]);
+
   const filteredProducts = products.filter((product) => {
     const matchesCategory =
       selectedCategory === 'all' || product.categoria_id === selectedCategory;
@@ -84,6 +157,17 @@ const Catalog = () => {
                 />
               </div>
 
+              {/* Date Selector */}
+              <div className="md:w-64">
+                <Input
+                  type="date"
+                  value={eventDate}
+                  onChange={handleDateChange}
+                  placeholder="Fecha del evento"
+                  className="w-full"
+                />
+              </div>
+
               {/* Filter Button Mobile */}
               <Button
                 variant="secondary"
@@ -94,6 +178,21 @@ const Catalog = () => {
                 Filtros
               </Button>
             </div>
+
+            {/* Date Info Banner */}
+            {eventDate ? (
+              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl">
+                <p className="text-sm text-green-800">
+                  <strong>✓ Mostrando disponibilidad para:</strong> {new Date(eventDate + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                <p className="text-sm text-blue-800">
+                  <strong>💡 Tip:</strong> Selecciona una fecha para ver el stock disponible para tu evento
+                </p>
+              </div>
+            )}
 
             {/* Categories - Desktop */}
             <div className="hidden md:flex flex-wrap gap-3 mt-6">
@@ -179,57 +278,178 @@ const Catalog = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                availableStock={productStockMap[product.id] !== undefined ? productStockMap[product.id] : product.stock}
+                hasDateSelected={!!eventDate}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {/* Floating Cart Button */}
+      {getTotalItems() > 0 && (
+        <button
+          onClick={() => navigate('/cotizacion')}
+          className="fixed bottom-8 right-8 bg-gradient-to-r from-autumn-500 to-rust-500 text-white p-4 rounded-full shadow-soft-xl hover:shadow-soft-2xl transition-all duration-300 flex items-center gap-3 z-40 group"
+        >
+          <ShoppingCart className="w-6 h-6" />
+          <span className="font-semibold">{getTotalItems()}</span>
+          <span className="hidden md:inline-block">Ver Carrito</span>
+          <div className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold animate-pulse">
+            {getTotalItems()}
+          </div>
+        </button>
+      )}
     </div>
   );
 };
 
-const ProductCard = ({ product }) => {
+const ProductCard = ({ product, availableStock, hasDateSelected }) => {
+  const { addToCart, isInCart, getItemQuantity } = useCart();
+  const [quantity, setQuantity] = useState(1);
+  const inCart = isInCart(product.id);
+  const cartQuantity = getItemQuantity(product.id);
+
+  const handleQuantityChange = (e) => {
+    const value = parseInt(e.target.value) || 0;
+    if (value > availableStock) {
+      alert(`Solo hay ${availableStock} unidades disponibles`);
+      setQuantity(availableStock);
+    } else if (value < 1) {
+      setQuantity(1);
+    } else {
+      setQuantity(value);
+    }
+  };
+
+  const handleAddToCart = (e) => {
+    e.stopPropagation();
+    addToCart(product, quantity);
+    setQuantity(1); // Reset quantity after adding
+  };
+
   return (
-    <Card className="group cursor-pointer overflow-hidden h-full flex flex-col">
+    <Card className="group overflow-hidden h-full flex flex-col relative">
       {/* Image */}
       <div className="relative overflow-hidden rounded-2xl mb-4 aspect-square bg-autumn-100">
         <img
           src={product.imagen_url || '/placeholder-product.jpg'}
           alt={product.nombre}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          onError={(e) => {
+            e.target.src = 'https://via.placeholder.com/400?text=Sin+Imagen';
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-autumn-900/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-          {/* Availability Badge */}
-          <div className="absolute top-4 right-4">
-            <span className="px-4 py-2 rounded-full text-xs font-semibold bg-white/90 backdrop-blur-sm text-autumn-700">
-              {product.stock > 0 ? 'Disponible' : 'No disponible'}
-            </span>
-          </div>
+        {/* Availability Badge */}
+        <div className="absolute top-4 right-4">
+          <span className={`px-4 py-2 rounded-full text-xs font-semibold backdrop-blur-sm ${
+            availableStock === 0
+              ? 'bg-red-500/90 text-white'
+              : availableStock < 5 && hasDateSelected
+              ? 'bg-amber-500/90 text-white'
+              : 'bg-white/90 text-autumn-700'
+          }`}>
+            {hasDateSelected ? `Disponibles: ${availableStock}` : `Stock: ${product.stock}`}
+          </span>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 flex flex-col">
-          <h3 className="text-lg font-bold text-autumn-800 mb-2 line-clamp-2">
-            {product.nombre}
-          </h3>
-          <p className="text-sm text-autumn-600 mb-4 line-clamp-2 flex-1">
-            {product.descripcion}
-          </p>
+        {/* In Cart Badge */}
+        {inCart && (
+          <div className="absolute top-4 left-4">
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-500 text-white flex items-center gap-1">
+              <Check className="w-3 h-3" />
+              En carrito ({cartQuantity})
+            </span>
+          </div>
+        )}
+      </div>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-2xl font-bold gradient-text">
-                ${product.precio}
-              </div>
-              <div className="text-xs text-autumn-500">por día</div>
-            </div>
+      {/* Content */}
+      <div className="flex-1 flex flex-col">
+        <h3 className="text-lg font-bold text-autumn-800 mb-2 line-clamp-2">
+          {product.nombre}
+        </h3>
+        <p className="text-sm text-autumn-600 mb-3 line-clamp-2 flex-1">
+          {product.descripcion}
+        </p>
 
-            <button className="px-4 py-2 bg-gradient-to-r from-autumn-500 to-rust-500 text-white rounded-xl text-sm font-semibold shadow-soft hover:shadow-soft-lg transition-shadow">
-              Ver Detalles
+        <div className="text-2xl font-bold gradient-text mb-3">
+          ${product.precio}
+          <span className="text-xs text-autumn-500 font-normal ml-1">por día</span>
+        </div>
+
+        {/* Quantity Selector */}
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-autumn-700 mb-1">
+            Cantidad
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setQuantity(Math.max(1, quantity - 1));
+              }}
+              className="p-2 bg-autumn-100 hover:bg-autumn-200 rounded-lg transition-colors"
+            >
+              <Minus className="w-4 h-4 text-autumn-700" />
+            </button>
+
+            <input
+              type="number"
+              value={quantity}
+              onChange={handleQuantityChange}
+              min="1"
+              max={availableStock}
+              className="w-full px-3 py-2 border-2 border-autumn-200 rounded-lg text-center font-semibold focus:border-autumn-500 focus:outline-none"
+              onClick={(e) => e.stopPropagation()}
+            />
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setQuantity(Math.min(availableStock, quantity + 1));
+              }}
+              className="p-2 bg-autumn-100 hover:bg-autumn-200 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4 text-autumn-700" />
             </button>
           </div>
         </div>
+
+        {/* Add to Cart Button */}
+        <button
+          onClick={handleAddToCart}
+          disabled={availableStock === 0}
+          className={`w-full px-4 py-3 rounded-xl text-sm font-semibold shadow-soft hover:shadow-soft-lg transition-all ${
+            availableStock === 0
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : inCart
+              ? 'bg-green-500 text-white hover:bg-green-600'
+              : 'bg-gradient-to-r from-autumn-500 to-rust-500 text-white'
+          }`}
+        >
+          {availableStock === 0 ? (
+            'Sin stock'
+          ) : inCart ? (
+            <span className="flex items-center justify-center gap-1">
+              <Plus className="w-4 h-4" />
+              Agregar {quantity} más
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-1">
+              <ShoppingCart className="w-4 h-4" />
+              Agregar {quantity} {quantity === 1 ? 'unidad' : 'unidades'}
+            </span>
+          )}
+        </button>
+      </div>
     </Card>
   );
 };

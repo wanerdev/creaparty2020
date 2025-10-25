@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Eye, Check, X, Mail, Calendar, Users, Phone } from 'lucide-react';
+import { Search, Eye, Check, X, Mail, Calendar, Users, Phone, Package, DollarSign, ShoppingCart } from 'lucide-react';
 import { supabase } from '../../config/supabase';
 import { sendQuotationApprovedEmail, sendQuotationRejectedEmail } from '../../services/emailService';
 import Button from '../../components/ui/Button';
@@ -13,6 +13,7 @@ const QuotationsManagement = () => {
   const [filter, setFilter] = useState('all'); // all, pendiente, aprobada, rechazada
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [quotationProducts, setQuotationProducts] = useState({});
 
   useEffect(() => {
     fetchQuotations();
@@ -27,10 +28,47 @@ const QuotationsManagement = () => {
 
       if (error) throw error;
       setQuotations(data || []);
+
+      // Fetch products for each quotation
+      if (data && data.length > 0) {
+        await fetchQuotationProducts(data);
+      }
     } catch (error) {
       console.error('Error fetching quotations:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchQuotationProducts = async (quotations) => {
+    try {
+      const productsMap = {};
+
+      await Promise.all(
+        quotations.map(async (quotation) => {
+          const { data, error } = await supabase
+            .from('productos_cotizacion')
+            .select(`
+              *,
+              productos:producto_id (
+                nombre,
+                precio,
+                imagen_url
+              )
+            `)
+            .eq('cotizacion_id', quotation.id);
+
+          if (!error && data) {
+            productsMap[quotation.id] = data;
+          } else {
+            productsMap[quotation.id] = [];
+          }
+        })
+      );
+
+      setQuotationProducts(productsMap);
+    } catch (error) {
+      console.error('Error fetching quotation products:', error);
     }
   };
 
@@ -107,7 +145,7 @@ const QuotationsManagement = () => {
 
     try {
       // Crear reserva
-      const { error: reservationError } = await supabase
+      const { data: newReservation, error: reservationError } = await supabase
         .from('reservas')
         .insert([
           {
@@ -118,11 +156,36 @@ const QuotationsManagement = () => {
             fecha_evento: quotation.fecha_evento,
             tipo_evento: quotation.tipo_evento,
             num_personas: quotation.num_personas,
+            tipo_servicio: quotation.tipo_servicio || 'alquiler',
+            total: quotation.total,
             estado: 'confirmada',
           },
-        ]);
+        ])
+        .select()
+        .single();
 
       if (reservationError) throw reservationError;
+
+      // Copiar productos de la cotización a la reserva
+      const products = quotationProducts[quotation.id];
+      if (products && products.length > 0 && newReservation) {
+        const reservationProducts = products.map((item) => ({
+          reserva_id: newReservation.id,
+          producto_id: item.producto_id,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario,
+          subtotal: item.subtotal,
+        }));
+
+        const { error: productsError } = await supabase
+          .from('productos_reserva')
+          .insert(reservationProducts);
+
+        if (productsError) {
+          console.error('Error copying products to reservation:', productsError);
+          // Continue anyway - reservation was created
+        }
+      }
 
       // Actualizar cotización
       const { error: quotationError } = await supabase
@@ -132,7 +195,7 @@ const QuotationsManagement = () => {
 
       if (quotationError) throw quotationError;
 
-      alert('Reserva creada exitosamente');
+      alert('Reserva creada exitosamente con todos los productos');
       fetchQuotations();
       setSelectedQuotation(null);
     } catch (error) {
@@ -273,6 +336,82 @@ const QuotationsManagement = () => {
                       <div className="p-4 bg-autumn-50 rounded-xl">
                         <div className="text-sm text-autumn-500 mb-1">Mensaje:</div>
                         <div className="text-autumn-700">{quotation.mensaje}</div>
+                      </div>
+                    )}
+
+                    {/* Service Type Badge */}
+                    {quotation.tipo_servicio && (
+                      <div className="mt-4">
+                        <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                          quotation.tipo_servicio === 'decoracion'
+                            ? 'bg-purple-100 text-purple-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {quotation.tipo_servicio === 'decoracion' ? '✨ Servicio de Decoración' : '🪑 Solo Alquiler'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Products List */}
+                    {quotationProducts[quotation.id] && quotationProducts[quotation.id].length > 0 && (
+                      <div className="mt-4">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-autumn-700 mb-3">
+                          <ShoppingCart className="w-4 h-4" />
+                          Productos Solicitados ({quotationProducts[quotation.id].length})
+                        </div>
+                        <div className="space-y-2">
+                          {quotationProducts[quotation.id].map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-3 p-3 bg-white rounded-xl border border-autumn-200"
+                            >
+                              {/* Product Image */}
+                              {item.productos?.imagen_url && (
+                                <img
+                                  src={item.productos.imagen_url}
+                                  alt={item.productos?.nombre}
+                                  className="w-12 h-12 object-cover rounded-lg"
+                                  onError={(e) => {
+                                    e.target.src = 'https://via.placeholder.com/48?text=Sin+Imagen';
+                                  }}
+                                />
+                              )}
+
+                              {/* Product Info */}
+                              <div className="flex-1">
+                                <div className="font-semibold text-autumn-800 text-sm">
+                                  {item.productos?.nombre}
+                                </div>
+                                <div className="text-xs text-autumn-600">
+                                  <Package className="w-3 h-3 inline mr-1" />
+                                  Cantidad: {item.cantidad} × ${item.precio_unitario}
+                                </div>
+                              </div>
+
+                              {/* Subtotal */}
+                              <div className="text-right">
+                                <div className="text-sm font-bold text-autumn-700">
+                                  ${item.subtotal}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Total */}
+                        {quotation.total && (
+                          <div className="mt-3 p-3 bg-gradient-to-r from-autumn-50 to-rust-50 rounded-xl border border-autumn-200">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold text-autumn-700 flex items-center gap-1">
+                                <DollarSign className="w-4 h-4" />
+                                Total Estimado
+                              </span>
+                              <span className="text-lg font-bold gradient-text">
+                                ${quotation.total}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

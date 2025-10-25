@@ -8,9 +8,12 @@ import {
   LogOut,
   Menu,
   X,
+  ArrowRight,
+  TrendingUp,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../config/supabase';
 import Button from '../../components/ui/Button';
 
 // Import real management pages
@@ -20,30 +23,130 @@ import ReservationsManagement from './ReservationsManagement';
 import GalleryManagement from './GalleryManagement';
 
 // Dashboard Home View
-const DashboardHome = () => (
-  <div>
-    <h2 className="text-2xl md:text-3xl font-bold gradient-text mb-6">Dashboard</h2>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-      {[
-        { title: 'Cotizaciones Pendientes', value: '12', color: 'from-autumn-500 to-rust-500' },
-        { title: 'Reservas del Mes', value: '28', color: 'from-rust-500 to-terracotta-500' },
-        { title: 'Productos', value: '145', color: 'from-sage-500 to-autumn-500' },
-        { title: 'Eventos Completados', value: '89', color: 'from-terracotta-500 to-autumn-600' },
-      ].map((stat, index) => (
-        <div
-          key={index}
-          className="glass-card p-4 md:p-6 rounded-2xl"
-        >
-          <div className={`inline-flex p-2 md:p-3 rounded-xl bg-gradient-to-br ${stat.color} text-white mb-3 md:mb-4`}>
-            <LayoutDashboard className="w-5 h-5 md:w-6 md:h-6" />
-          </div>
-          <div className="text-2xl md:text-3xl font-bold gradient-text mb-2">{stat.value}</div>
-          <div className="text-sm md:text-base text-autumn-600">{stat.title}</div>
-        </div>
-      ))}
+const DashboardHome = () => {
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    pendingQuotations: 0,
+    monthReservations: 0,
+    totalProducts: 0,
+    completedEvents: 0,
+    loading: true,
+  });
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      // Cotizaciones pendientes
+      const { count: pendingCount } = await supabase
+        .from('cotizaciones')
+        .select('*', { count: 'exact', head: true })
+        .eq('estado', 'pendiente');
+
+      // Reservas del mes actual
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      const { count: monthReservationsCount } = await supabase
+        .from('reservas')
+        .select('*', { count: 'exact', head: true })
+        .gte('fecha_evento', firstDay.toISOString().split('T')[0])
+        .lte('fecha_evento', lastDay.toISOString().split('T')[0]);
+
+      // Total de productos
+      const { count: productsCount } = await supabase
+        .from('productos')
+        .select('*', { count: 'exact', head: true });
+
+      // Eventos completados (reservas confirmadas pasadas)
+      const { count: completedCount } = await supabase
+        .from('reservas')
+        .select('*', { count: 'exact', head: true })
+        .eq('estado', 'completada')
+        .lt('fecha_evento', now.toISOString().split('T')[0]);
+
+      setStats({
+        pendingQuotations: pendingCount || 0,
+        monthReservations: monthReservationsCount || 0,
+        totalProducts: productsCount || 0,
+        completedEvents: completedCount || 0,
+        loading: false,
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      setStats(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const statCards = [
+    {
+      title: 'Cotizaciones Pendientes',
+      value: stats.pendingQuotations,
+      color: 'from-autumn-500 to-rust-500',
+      icon: FileText,
+      link: '/admin/cotizaciones',
+    },
+    {
+      title: 'Reservas del Mes',
+      value: stats.monthReservations,
+      color: 'from-rust-500 to-terracotta-500',
+      icon: Calendar,
+      link: '/admin/reservas',
+    },
+    {
+      title: 'Productos',
+      value: stats.totalProducts,
+      color: 'from-sage-500 to-autumn-500',
+      icon: Package,
+      link: '/admin/productos',
+    },
+    {
+      title: 'Eventos Completados',
+      value: stats.completedEvents,
+      color: 'from-terracotta-500 to-autumn-600',
+      icon: TrendingUp,
+      link: '/admin/reservas',
+    },
+  ];
+
+  if (stats.loading) {
+    return (
+      <div className="text-center py-20">
+        <div className="inline-block w-16 h-16 border-4 border-autumn-200 border-t-autumn-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="text-2xl md:text-3xl font-bold gradient-text mb-6">Dashboard</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        {statCards.map((stat, index) => {
+          const IconComponent = stat.icon;
+          return (
+            <div
+              key={index}
+              onClick={() => navigate(stat.link)}
+              className="glass-card p-4 md:p-6 rounded-2xl cursor-pointer hover:shadow-soft-xl transition-all duration-300 group"
+            >
+              <div className={`inline-flex p-2 md:p-3 rounded-xl bg-gradient-to-br ${stat.color} text-white mb-3 md:mb-4`}>
+                <IconComponent className="w-5 h-5 md:w-6 md:h-6" />
+              </div>
+              <div className="text-2xl md:text-3xl font-bold gradient-text mb-2">{stat.value}</div>
+              <div className="flex items-center justify-between">
+                <div className="text-sm md:text-base text-autumn-600">{stat.title}</div>
+                <ArrowRight className="w-4 h-4 text-autumn-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 
 const Dashboard = () => {
