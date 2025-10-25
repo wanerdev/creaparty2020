@@ -97,21 +97,23 @@ const Availability = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Calendar */}
           <div className="lg:col-span-2">
-            <Card className="p-8">
+            <Card className="p-4 md:p-8">
               {loading ? (
                 <div className="text-center py-20">
                   <div className="inline-block w-16 h-16 border-4 border-autumn-200 border-t-autumn-500 rounded-full animate-spin" />
                 </div>
               ) : (
-                <div className="calendar-container">
+                <div className="calendar-container overflow-x-auto">
                   <Calendar
                     localizer={localizer}
                     events={events}
                     startAccessor="start"
                     endAccessor="end"
-                    style={{ height: 600 }}
+                    style={{ height: 500, minWidth: '100%' }}
                     eventPropGetter={eventStyleGetter}
                     culture="es"
+                    views={['month']}
+                    defaultView="month"
                     messages={{
                       next: 'Siguiente',
                       previous: 'Anterior',
@@ -217,11 +219,12 @@ const Availability = () => {
             font-family: 'Inter', sans-serif;
           }
           .rbc-header {
-            padding: 1rem 0.5rem;
+            padding: 0.75rem 0.25rem;
             font-weight: 600;
             color: #974e33;
             background: linear-gradient(to bottom, #f8ede7, #f0d6c8);
             border: none !important;
+            font-size: 0.75rem;
           }
           .rbc-today {
             background-color: #fdf5f1;
@@ -229,13 +232,19 @@ const Availability = () => {
           .rbc-off-range-bg {
             background-color: #fdfcfa;
           }
+          .rbc-toolbar {
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+          }
           .rbc-toolbar button {
             color: #974e33;
             border: 2px solid #e7bca8;
-            border-radius: 0.75rem;
-            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            padding: 0.4rem 0.75rem;
             font-weight: 600;
             transition: all 0.3s;
+            font-size: 0.875rem;
           }
           .rbc-toolbar button:hover {
             background-color: #f0d6c8;
@@ -246,17 +255,55 @@ const Availability = () => {
             color: white;
             border-color: transparent;
           }
+          .rbc-toolbar-label {
+            font-size: 1rem;
+            font-weight: 700;
+          }
           .rbc-month-view {
             border: 2px solid #e7bca8;
             border-radius: 1rem;
             overflow: hidden;
           }
           .rbc-date-cell {
-            padding: 0.5rem;
+            padding: 0.25rem;
+            font-size: 0.875rem;
           }
           .rbc-event {
             background-color: #c97d56;
             border-radius: 0.5rem;
+            font-size: 0.75rem;
+            padding: 2px 4px;
+          }
+          .rbc-day-bg {
+            min-height: 40px;
+          }
+
+          @media (max-width: 640px) {
+            .rbc-header {
+              padding: 0.5rem 0.125rem;
+              font-size: 0.625rem;
+            }
+            .rbc-toolbar button {
+              padding: 0.35rem 0.5rem;
+              font-size: 0.75rem;
+            }
+            .rbc-toolbar-label {
+              font-size: 0.875rem;
+              width: 100%;
+              text-align: center;
+              margin-bottom: 0.5rem;
+            }
+            .rbc-date-cell {
+              padding: 0.125rem;
+              font-size: 0.75rem;
+            }
+            .rbc-event {
+              font-size: 0.625rem;
+              padding: 1px 2px;
+            }
+            .rbc-day-bg {
+              min-height: 35px;
+            }
           }
         `}</style>
       </div>

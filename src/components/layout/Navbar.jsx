@@ -17,6 +17,17 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    // Close mobile menu when clicking outside
+    const handleClickOutside = (event) => {
+      if (isMobileMenuOpen && !event.target.closest('nav')) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [isMobileMenuOpen]);
+
   const navLinks = [
     { name: 'Inicio', path: '/' },
     { name: 'Catálogo', path: '/catalogo' },
@@ -86,8 +97,8 @@ const Navbar = () => {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="md:hidden overflow-hidden animate-fade-in">
-            <div className="pt-4 pb-6 space-y-3">
+          <div className="md:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-xl shadow-soft-lg animate-fade-in border-t border-autumn-200">
+            <div className="container mx-auto px-4 py-6 space-y-3 max-h-[80vh] overflow-y-auto">
               {navLinks.map((link) => (
                 <div key={link.path}>
                   <Link
