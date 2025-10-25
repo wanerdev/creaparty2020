@@ -84,13 +84,17 @@ const Navbar = () => {
 
           {/* Mobile Menu Button */}
           <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl hover:bg-autumn-100 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMobileMenuOpen(!isMobileMenuOpen);
+            }}
+            className="md:hidden p-4 rounded-xl hover:bg-autumn-100 transition-colors active:scale-95"
+            aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? (
-              <X className="w-6 h-6 text-autumn-700" />
+              <X className="w-7 h-7 text-autumn-700" />
             ) : (
-              <Menu className="w-6 h-6 text-autumn-700" />
+              <Menu className="w-7 h-7 text-autumn-700" />
             )}
           </button>
         </div>

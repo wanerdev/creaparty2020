@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Calendar as CalendarIcon, CheckCircle, XCircle } from 'lucide-react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
@@ -23,6 +23,7 @@ const Availability = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
+  const selectedDateRef = useRef(null);
 
   useEffect(() => {
     fetchReservations();
@@ -79,8 +80,26 @@ const Availability = () => {
     return !isReserved;
   };
 
+  const scrollToSelectedDate = () => {
+    // Wait for the component to render, then scroll
+    setTimeout(() => {
+      if (selectedDateRef.current && window.innerWidth < 1024) {
+        selectedDateRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        });
+      }
+    }, 100);
+  };
+
   const handleSelectSlot = (slotInfo) => {
     setSelectedDate(slotInfo.start);
+    scrollToSelectedDate();
+  };
+
+  const handleSelectEvent = (event) => {
+    setSelectedDate(event.start);
+    scrollToSelectedDate();
   };
 
   return (
@@ -128,7 +147,11 @@ const Availability = () => {
                       noEventsInRange: 'No hay eventos en este rango',
                     }}
                     onSelectSlot={handleSelectSlot}
+                    onSelectEvent={handleSelectEvent}
                     selectable
+                    popup
+                    step={60}
+                    showMultiDayTimes
                   />
                 </div>
               )}
@@ -157,7 +180,7 @@ const Availability = () => {
 
             {/* Selected Date Info */}
             {selectedDate && (
-              <Card className="border-2 border-autumn-300">
+              <Card ref={selectedDateRef} className="border-2 border-autumn-300">
                 <h3 className="text-lg font-bold text-autumn-800 mb-4">
                   Fecha Seleccionada
                 </h3>
@@ -273,9 +296,25 @@ const Availability = () => {
             border-radius: 0.5rem;
             font-size: 0.75rem;
             padding: 2px 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          .rbc-event:hover {
+            background-color: #974e33;
+            transform: scale(1.05);
           }
           .rbc-day-bg {
             min-height: 40px;
+            cursor: pointer;
+          }
+          .rbc-day-bg:hover {
+            background-color: #fdf5f1;
+          }
+          .rbc-date-cell {
+            pointer-events: auto;
+          }
+          .rbc-month-view .rbc-day-bg {
+            pointer-events: auto;
           }
 
           @media (max-width: 640px) {

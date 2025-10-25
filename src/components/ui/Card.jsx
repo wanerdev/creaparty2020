@@ -1,12 +1,13 @@
+import { forwardRef } from 'react';
 import { cn } from '../../lib/utils';
 
-const Card = ({
+const Card = forwardRef(({
   children,
   variant = 'glass',
   hover = true,
   className,
   ...props
-}) => {
+}, ref) => {
   const variants = {
     glass: hover ? 'glass-card-hover' : 'glass-card',
     neuro: 'neuro-card',
@@ -15,6 +16,7 @@ const Card = ({
 
   return (
     <div
+      ref={ref}
       className={cn(
         'p-6',
         variants[variant],
@@ -25,6 +27,8 @@ const Card = ({
       {children}
     </div>
   );
-};
+});
+
+Card.displayName = 'Card';
 
 export default Card;

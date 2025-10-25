@@ -96,13 +96,17 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-autumn-50 via-cream-100 to-sage-50">
       {/* Mobile Menu Toggle Button */}
       <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="sidebar-toggle md:hidden fixed top-4 left-4 z-50 p-3 rounded-xl bg-white shadow-soft-lg hover:bg-autumn-50 transition-colors"
+        onClick={(e) => {
+          e.stopPropagation();
+          setSidebarOpen(!sidebarOpen);
+        }}
+        className="sidebar-toggle md:hidden fixed top-4 left-4 z-50 p-4 rounded-xl bg-white shadow-soft-lg hover:bg-autumn-50 transition-colors active:scale-95"
+        aria-label="Toggle sidebar"
       >
         {sidebarOpen ? (
-          <X className="w-6 h-6 text-autumn-700" />
+          <X className="w-7 h-7 text-autumn-700" />
         ) : (
-          <Menu className="w-6 h-6 text-autumn-700" />
+          <Menu className="w-7 h-7 text-autumn-700" />
         )}
       </button>
 
