@@ -189,9 +189,12 @@ const Availability = () => {
                   <span className="text-autumn-700 text-sm">Disponible para Alquiler o Decoración</span>
                 </div>
               </div>
-              <div className="mt-4 p-3 bg-blue-50 rounded-xl">
+              <div className="mt-4 p-3 bg-blue-50 rounded-xl space-y-2">
                 <p className="text-xs text-blue-800">
                   <strong>💡 Nota:</strong> Solo mostramos fechas con servicio de decoración. Los alquileres simples no bloquean fechas.
+                </p>
+                <p className="text-xs text-green-800 bg-green-50 p-2 rounded-lg">
+                  <strong>📞 ¿Fecha ocupada?</strong> No te preocupes, solicita tu cotización de todos modos. Dependiendo de los horarios y ubicaciones, podemos organizarnos para atender múltiples eventos el mismo día.
                 </p>
               </div>
             </Card>
