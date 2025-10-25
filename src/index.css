@@ -1,0 +1,218 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-autumn-200;
+  }
+
+  body {
+    @apply bg-gradient-to-br from-autumn-50 via-cream-100 to-sage-50 text-autumn-900 antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  /* Glass Morphism Card */
+  .glass-card {
+    @apply bg-white/60 backdrop-blur-xl border border-white/20 shadow-glass;
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-500 hover:bg-white/70 hover:shadow-glass-lg hover:-translate-y-1;
+  }
+
+  /* Neumorphism */
+  .neuro-card {
+    @apply bg-gradient-to-br from-cream-50 to-autumn-100 shadow-[8px_8px_16px_rgba(201,125,86,0.1),-8px_-8px_16px_rgba(255,255,255,0.9)] rounded-3xl;
+  }
+
+  /* Modern Button Styles */
+  .btn-primary {
+    @apply px-8 py-4 bg-gradient-to-r from-autumn-500 to-rust-500 text-white font-semibold rounded-2xl shadow-soft-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 relative overflow-hidden;
+  }
+
+  .btn-primary::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-rust-400 to-autumn-400 opacity-0 hover:opacity-100 transition-opacity duration-300;
+  }
+
+  .btn-secondary {
+    @apply px-8 py-4 bg-white/80 backdrop-blur-sm text-autumn-700 font-semibold rounded-2xl shadow-soft hover:shadow-soft-lg hover:bg-white transition-all duration-300 border border-autumn-200/50;
+  }
+
+  .btn-ghost {
+    @apply px-6 py-3 text-autumn-700 font-medium hover:bg-autumn-100/50 rounded-xl transition-all duration-300;
+  }
+
+  /* Gradient Text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-autumn-600 via-rust-500 to-terracotta-600 bg-clip-text text-transparent;
+  }
+
+  /* Custom Inputs */
+  .input-modern {
+    @apply w-full px-6 py-4 bg-white/80 backdrop-blur-sm border-2 border-autumn-200/50 rounded-2xl focus:border-autumn-400 focus:ring-4 focus:ring-autumn-200/30 transition-all duration-300 outline-none text-autumn-900 placeholder:text-autumn-400;
+  }
+
+  .input-modern:focus {
+    @apply shadow-soft-lg;
+  }
+
+  /* Floating Label Effect - Nota: usar clases directamente en componentes para peer */
+
+  /* Section Headers */
+  .section-header {
+    @apply text-display-lg font-bold gradient-text mb-4;
+  }
+
+  .section-subheader {
+    @apply text-xl text-autumn-600 max-w-2xl mx-auto;
+  }
+
+  /* Card Grid */
+  .card-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8;
+  }
+
+  /* Asymmetric Organic Shape */
+  .organic-shape {
+    border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%;
+  }
+
+  .organic-shape-2 {
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+  }
+
+  /* Blob Animation Background */
+  .blob {
+    @apply absolute rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-float;
+  }
+
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-autumn-100 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-autumn-400 rounded-full hover:bg-autumn-500;
+  }
+
+  /* Stagger Animation */
+  .stagger-item {
+    @apply opacity-0 animate-fade-up;
+  }
+
+  /* Navigation Link */
+  .nav-link {
+    @apply relative text-autumn-700 font-medium px-4 py-2 transition-colors duration-300 hover:text-autumn-900;
+  }
+
+  .nav-link::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-autumn-500 to-rust-500 transition-all duration-300;
+  }
+
+  .nav-link:hover::after {
+    @apply w-full;
+  }
+
+  .nav-link.active::after {
+    @apply w-full;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+
+  .animation-delay-600 {
+    animation-delay: 600ms;
+  }
+
+  .animation-delay-800 {
+    animation-delay: 800ms;
+  }
+
+  /* Gradient Mesh Background */
+  .bg-mesh {
+    background-image:
+      radial-gradient(at 0% 0%, rgba(248, 237, 231, 0.3) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(250, 233, 230, 0.3) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(227, 230, 221, 0.3) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(240, 214, 200, 0.3) 0px, transparent 50%);
+  }
+
+  /* Parallax */
+  .parallax {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+}
+
+/* Custom Animations */
+@keyframes slideInFromLeft {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes morphing {
+  0%, 100% {
+    border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%;
+  }
+  25% {
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+  }
+  50% {
+    border-radius: 54% 46% 38% 62% / 49% 70% 30% 51%;
+  }
+  75% {
+    border-radius: 70% 30% 50% 50% / 30% 54% 46% 70%;
+  }
+}
+
+/* Selection */
+::selection {
+  @apply bg-autumn-300 text-autumn-900;
+}
+
+::-moz-selection {
+  @apply bg-autumn-300 text-autumn-900;
+}
